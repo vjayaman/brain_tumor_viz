@@ -12,39 +12,44 @@ source("functions.R")
 bt <- loadData()
 symptom_list <- unique(c(bt$Symptom_1, bt$Symptom_2, bt$Symptom_3))
 
-
 ui <- page_fillable(
-  layout_columns(
-    card(highchartOutput("densPlot")),
-    layout_columns(
-      card(textOutput("WIP_Notes"), 
-           pickerInput(inputId = "sel_symptoms", label = "Select symptoms:", 
-                       choices = symptom_list, multiple = TRUE, 
-                       options = pickerOptions(
-                         actionsBox = TRUE, size = length(symptom_list), selectAllText = "All selected", dropupAuto = TRUE)
-                       ), 
-           pickerInput(inputId = "sel_treat", label = "Select treatments:", 
-                       choices = c("Radiation_Treatment", "Surgery_Performed", "Chemotherapy"), 
-                       multiple = TRUE, 
-                       options = pickerOptions(
-                         actionsBox = TRUE, size = 3, selectAllText = "All selected", dropupAuto = TRUE)
-                       ), 
-           checkboxGroupInput(inputId = "sel_mri", label = "MRI result",
-             choices = unique(bt$MRI_Result),
-             selected = unique(bt$MRI_Result),
-             inline = TRUE), 
-           checkboxGroupInput(inputId = "sel_famhist", label = "Family history",
-                              choices = sort(unique(bt$Family_History), decreasing = TRUE), 
-                              selected = sort(unique(bt$Family_History), decreasing = TRUE), 
-                              inline = TRUE)
-           )
-      # card(card_header("C3"), textOutput("selectedElem")),
-      # col_widths = c(12, 12)
+  
+  layout_column_wrap(
+    width = 1/2, 
+    card(
+      navset_card_underline(
+        # title = "", 
+        nav_panel("Demographic density", highchartOutput("densPlot")), 
+        nav_panel("Dimensionality reduction")
+      )
     ),
+    card(textOutput("WIP_Notes"), 
+         pickerInput(inputId = "sel_symptoms", label = "Select symptoms:", 
+                     choices = symptom_list, multiple = TRUE, 
+                     options = pickerOptions(
+                       actionsBox = TRUE, size = length(symptom_list), selectAllText = "All selected", dropupAuto = TRUE)
+         ), 
+         pickerInput(inputId = "sel_treat", label = "Select treatments:", 
+                     choices = c("Radiation_Treatment", "Surgery_Performed", "Chemotherapy"), 
+                     multiple = TRUE, 
+                     options = pickerOptions(
+                       actionsBox = TRUE, size = 3, selectAllText = "All selected", dropupAuto = TRUE)
+         ), 
+         checkboxGroupInput(inputId = "sel_mri", label = "MRI result",
+                            choices = unique(bt$MRI_Result),
+                            selected = unique(bt$MRI_Result),
+                            inline = TRUE), 
+         checkboxGroupInput(inputId = "sel_famhist", label = "Family history",
+                            choices = sort(unique(bt$Family_History), decreasing = TRUE), 
+                            selected = sort(unique(bt$Family_History), decreasing = TRUE), 
+                            inline = TRUE)
+    ), 
     card(highchartOutput("heatPlot")),
     card(highchartOutput("scatPlot"))
   )
 )
+
+
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
