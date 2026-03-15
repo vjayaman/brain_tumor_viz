@@ -12,8 +12,32 @@ set.seed(42)
 colors <- c("#E6194B", "#3CB44B", "#FFE119", "#4363D8", "#F58231", "#911EB4", "#46F0F0", "#F032E6", "#BCF60C", "#FABEBE")
 
 br <- loadData()
-br_red <- br %>% select(Age, Tumor_Size, Survival_Rate, Tumor_Growth_Rate, Location)
-# br_red <- br %>% select(-Patient_ID, -Gender)
+# br_red <- br %>% select(Age, Tumor_Type, Tumor_Size, Tumor_Growth_Rate)
+
+# m1: 
+# c("Age", "Tumor_Size", "Survival_Rate", "Tumor_Growth_Rate", "Location") %>% saveRDS(., "m1.Rds")
+
+# m2: 
+# c("Tumor_Size", "Survival_Rate", "Tumor_Growth_Rate", "Radiation_Treatment", 
+#   "Surgery_Performed", "Chemotherapy", "MRI_Result") %>% saveRDS(., "m2.Rds")
+
+# m3: 
+# c("Age", "Gender", "Tumor_Type", "Tumor_Size", "Location", "Histology",
+#   "Stage", "Symptom_1", "Symptom_2", "Symptom_3", "Radiation_Treatment", "Surgery_Performed",
+#   "Chemotherapy", "Survival_Rate", "Tumor_Growth_Rate", "Family_History", "MRI_Result") %>%
+#   saveRDS(., "m3.Rds")
+
+# m4:
+# removed Patient_ID, Age, Gender, Histology, Family_History
+# c("Tumor_Type", "Tumor_Size", "Location", "Stage", "Symptom_1", 
+#   "Symptom_2", "Symptom_3", "Radiation_Treatment", "Surgery_Performed", 
+#   "Chemotherapy", "Survival_Rate", "Tumor_Growth_Rate", 
+#   "MRI_Result", "Follow_Up_Required") %>% saveRDS(., "m4.Rds")
+
+br_red <- br %>% select(all_of(c("Tumor_Type", "Tumor_Size", "Location", "Stage", "Symptom_1", 
+                                 "Symptom_2", "Symptom_3", "Radiation_Treatment", "Surgery_Performed", 
+                                 "Chemotherapy", "Survival_Rate", "Tumor_Growth_Rate", 
+                                 "MRI_Result", "Follow_Up_Required")))
 
 char_cols <- sapply(br_red, class) %>% grep("character", ., , value = TRUE) %>% names()
 br_mat <- br_red %>% 
@@ -42,7 +66,7 @@ i <- 10
 br_res <- tsne_res[[i]]$res
 br_dat <- data.frame(br_res$Y)
 
-color_column <- br %>% pull("Gender")
+color_column <- br %>% pull("Age")
 br_dat$ColorBy <- color_column[!duplicated(br_mat)]
 colnames(br_dat) <- c("Dim1", "Dim2", "Dim3", "ColorBy")
 plot_ly(br_dat, x = ~Dim1, y = ~Dim2, z = ~Dim3,
