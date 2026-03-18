@@ -6,8 +6,15 @@ tsne_inputs <- c("Age, tumor size, survival rate, tumor growth rate, location" =
 
 # UI functions -----------------------------------------------------------------
 chkBoxGroupBin <- function(id, lbl) {
-  checkboxGroupInput(inputId = id, label = lbl, inline = TRUE, choices = c("Yes","No"), selected = c("Yes","No"))  
+  checkboxGroupInput(inputId = id, label = lbl, inline = TRUE, 
+                     choices = c("Yes","No"), selected = c("Yes","No"))  
 }
+
+radGrpBtns <- function(id, lbl, chc = c("Yes", "No", "Both")) {
+  radioGroupButtons(inputId = id, label = lbl, size = "sm", direction = "horizontal",
+                    choices = chc, selected = last(chc))
+}
+
 
 # ------------------------------------------------------------------------------
 toScatter <- function(base, x, y) {
@@ -23,7 +30,8 @@ loadData <- function() {
 }
 
 colOpts <- function(df, colx) {
-  df %>% select(all_of(colx)) %>% pull() %>% unique() %>% sort(., decreasing = TRUE)
+  df %>% select(all_of(colx)) %>% pull() %>% unique() %>% 
+    sort(., decreasing = TRUE) %>% c(., "Both") %>% unique()
 }
 
 checkBinary <- function(base_tbl, inp, colx) {
@@ -32,7 +40,7 @@ checkBinary <- function(base_tbl, inp, colx) {
   }else if (("No" %in% inp) & !("Yes" %in% inp)) {
     base_tbl <- filter(base_tbl, .data[[colx]] == "Yes")
   }
-#   otherwise no change
+  # otherwise no change: "Both" and other implies do not filter, use all data
   return(base_tbl)
 }
 

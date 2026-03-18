@@ -1,4 +1,4 @@
-library(shiny); library(shinyWidgets); library(shinydashboard)
+library(shiny); library(shinyWidgets); #library(shinydashboard)
 libs <- c("tidyverse", "dplyr", "magrittr", "readr", "ggplot2", "janitor", 
           "data.table", "DT", "rlc", "bslib", "plotly", "highcharter")
 y <- suppressPackageStartupMessages(lapply(libs, require, character.only = TRUE))
@@ -8,10 +8,11 @@ source("functions.R")
 # ref 1: https://stackoverflow.com/questions/48887731/highcharter-click-event-to-filter-data-from-graph/48890125#48890125
 # ref 2: https://www.datanovia.com/en/lessons/highchart-interactive-density-and-histogram-plots-in-r/
 # ref 3: https://www.geeksforgeeks.org/r-language/t-distributed-stochastic-neighbor-embedding-t-sne-using-r/
+# ref 4: https://stackoverflow.com/questions/67625405/is-there-a-way-to-put-labels-next-to-an-input-box-in-shiny
 
 base_dt <- loadData()
 perplexity_values <- c(10,20,30,40,50,60,70,80,90,100)
-symptom_list <- colOpts(base_dt, c("Symptom_1", "Symptom_2", "Symptom_3"))
+symptom_list <- setdiff(colOpts(base_dt, c("Symptom_1", "Symptom_2", "Symptom_3")), "Both")
 treatment_list <- c("Radiation_Treatment", "Surgery_Performed", "Chemotherapy")
 a1 <- c("m1", "m2", "m3", "m4")
 
@@ -30,16 +31,13 @@ ui <- page_fillable(
                                choices = symptom_list, selected = symptom_list,
                                options = pickerOptions(actionsBox = TRUE, size = length(symptom_list), 
                                                        selectAllText = "All selected", dropupAuto = TRUE)), 
-                   checkboxGroupInput(inputId = "mri", label = "MRI result:",
-                                      choices = colOpts(base_dt, "MRI_Result"), 
-                                      selected = colOpts(base_dt, "MRI_Result"), inline = TRUE), 
                    
-                   checkboxGroupInput(inputId = "fam", label = "Family history:", inline = TRUE, 
-                                      choices = colOpts(base_dt, "Family_History"), 
-                                      selected = colOpts(base_dt, "Family_History"))
+                   radGrpBtns("mri", "MRI result", chc = colOpts(base_dt, "MRI_Result")), 
+                   radGrpBtns("fam", "Family History", chc = colOpts(base_dt, "Family_History")), 
                    ), 
-            column(6, p("Treatments:\n"), chkBoxGroupBin("rad", "Radiation"),
-                   chkBoxGroupBin("surg", "Surgery"), chkBoxGroupBin("chemo", "Chemotherapy"))
+            column(6, radGrpBtns("rad", "Radiation treatment"),
+                   radGrpBtns("surg", "Surgery performed"), 
+                   radGrpBtns("chemo", "Chemotherapy"))
             ), 
           fluidRow(uiOutput("Notes"))
         ), 
@@ -71,7 +69,6 @@ server <- function(input, output) {
 
   # Reactive value for selected gender
   selected_gender <- reactiveVal(NULL)
-  clickedHM <- reactiveVal(NULL)
   
   baseData <- reactive({
     bt <- loadData()
@@ -92,11 +89,9 @@ server <- function(input, output) {
   
   filtered_plot_data <- reactive({
     filtered <- baseData()
-    
     if (!is.null(selected_gender())) {
       filtered <- filtered %>% filter(Gender == selected_gender())
     }
-    
     filtered
   })
 
@@ -113,30 +108,21 @@ server <- function(input, output) {
     if (!is.null(male_data)) {
       dens_chart <- dens_chart %>%
         hc_add_series(
-          data = male_data,
-          type = "area",
+          data = male_data, type = "area",
           color = "rgba(184, 222, 244, 0.1)",
           lineColor = "rgb(33, 57, 72)",
-          lineWidth = 2,
-          name = "Male"
+          lineWidth = 2, name = "Male"
         )
     }
     
     if (!is.null(female_data)) {
       dens_chart <- dens_chart %>%
         hc_add_series(
-          data = female_data,
-          type = "area",
+          data = female_data, type = "area",
           color = "rgba(246, 145, 237, 0.2)",
           lineColor = "rgb(146, 73, 140)",
-          lineWidth = 2,
-          name = "Female"
+          lineWidth = 2, name = "Female"
         )
-    }
-    
-    if (is.null(male_data) && is.null(female_data)) {
-      dens_chart <- dens_chart %>%
-        hc_subtitle(text = "No density data available for the current filters.")
     }
     
     dens_chart
@@ -151,21 +137,23 @@ server <- function(input, output) {
   })
   
   output$Notes <- renderUI({
-    HTML(paste("Number of rows after filtering: ", nrow(baseData()), "<br>", 
+    HTML(paste("Number of rows after filtering: ", nrow(filtered_plot_data()), "<br>", 
                "If filtering options result in empty set, the last adjusted option ", 
                "is reset to all options selected. <br>", sep = ""))
   })
   
   
   output$heatPlot <- renderHighchart({
-    mt <- filtered_plot_data() %>% 
-      select(all_of(c("Location", "Stage", "Tumor_Size"))) %>% group_by(Location, Stage) %>% 
+    mt <- filtered_plot_data() %>%
+      select(all_of(c("Location", "Stage", "Tumor_Size"))) %>% 
+      group_by(Location, Stage) %>% 
       summarise(med_size = median(Tumor_Size), .groups = "drop") %>% 
       complete(Location, Stage, fill = list(med_size = NA_real_))
     
     pt <- pivot_wider(mt, names_from = c("Stage"), values_from = "med_size") %>% as.data.frame()
     rownames(pt) <- pt[,"Location"]
-    pt <- as.matrix(pt[, setdiff(names(pt), "Location"), drop = FALSE]) # as.matrix(pt[1:4,2:5])
+    pt <- as.matrix(pt[, setdiff(names(pt), "Location"), drop = FALSE])
+    pt[is.na(pt)] <- 0
     
     # ref 1
     clickHM <- JS("function(event) {Shiny.onInputChange('Clicked', event.point.name);}")
@@ -187,7 +175,6 @@ server <- function(input, output) {
     quadHM <<- strsplit(paste0(input$Clicked), split="~") %>% unlist %>% trimws
     quadHM <- list("stage" = quadHM[1], "loc" = quadHM[2])
   })
-  
 
   output$scatPlot <- renderHighchart({
     stage_x <<- quadHM[1]
@@ -203,9 +190,9 @@ server <- function(input, output) {
         hc_legend(enabled = TRUE) %>% 
         hc_xAxis(title = list(text = "Tumor Growth Rate")) %>% 
         hc_yAxis(title = list(text = "Survival Rate")) %>% 
-        hc_title(text = paste0("Tumor growth vs survival rate for stage ", 
+        hc_title(text = paste0("Tumor growth vs survival rate for stage ",
                                stage_x, " and the ", loc_y, " lobe",
-                               if (!is.null(selected_gender())) paste0(" (", selected_gender(), ")") else "")) %>% 
+                               if (!is.null(selected_gender())) paste0(" (", selected_gender(), ")") else "")) %>%
         hc_plotOptions(series = list(
           states = list(inactive = list(opacity = 0.2))))
     }
