@@ -1,4 +1,4 @@
-library(shiny); library(shinyWidgets); #library(shinydashboard)
+library(shiny); library(shinyWidgets); library(shinyalert)
 libs <- c("tidyverse", "dplyr", "magrittr", "readr", "ggplot2", "janitor", 
           "data.table", "DT", "rlc", "bslib", "plotly", "highcharter")
 y <- suppressPackageStartupMessages(lapply(libs, require, character.only = TRUE))
@@ -12,13 +12,12 @@ source("functions.R")
 
 base_dt <- loadData()
 perplexity_values <- c(10,20,30,40,50,60,70,80,90,100)
-symptom_list <- setdiff(colOpts(base_dt, c("Symptom_1", "Symptom_2", "Symptom_3")), "Both")
+symptom_list <- colOpts(base_dt, c("Symptom_1", "Symptom_2", "Symptom_3"))
 treatment_list <- c("Radiation_Treatment", "Surgery_Performed", "Chemotherapy")
 a1 <- c("m1", "m2", "m3", "m4")
 
 # UI logic
 ui <- page_fillable(
-  
   navset_card_underline(
     nav_panel("Home",
       layout_column_wrap(
@@ -29,11 +28,10 @@ ui <- page_fillable(
             column(6, 
                    pickerInput(inputId = "sym", label = "Select symptoms:", multiple = TRUE, 
                                choices = symptom_list, selected = symptom_list,
-                               options = pickerOptions(actionsBox = TRUE, size = length(symptom_list), 
-                                                       selectAllText = "All selected", dropupAuto = TRUE)), 
+                               options = pickerOptions(size = length(symptom_list), dropupAuto = TRUE)), 
                    
-                   radGrpBtns("mri", "MRI result", chc = colOpts(base_dt, "MRI_Result")), 
-                   radGrpBtns("fam", "Family History", chc = colOpts(base_dt, "Family_History")), 
+                   radGrpBtns("mri", "MRI result", chc = c("Positive" = "Yes", "Negative" = "No", "Both")), 
+                   radGrpBtns("fam", "Family History", chc = unique(c(colOpts(base_dt, "Family_History"), "Both"))), 
                    ), 
             column(6, radGrpBtns("rad", "Radiation treatment"),
                    radGrpBtns("surg", "Surgery performed"), 
@@ -70,58 +68,58 @@ server <- function(input, output) {
   # Reactive value for selected gender
   selected_gender <- reactiveVal(NULL)
   
-  baseData <- reactive({
+  filteredData <- reactive({
     bt <- loadData()
     if (length(input$sym) > 0) {
-      bt %<>% filter(Symptom_1 %in% input$sym) %>% 
+      bt <- bt %>% filter(Symptom_1 %in% input$sym) %>% 
         filter(Symptom_2 %in% input$sym) %>% filter(Symptom_3 %in% input$sym)
+    }else {
+      shinyalert(type = "info", text = "Must select at least one symptom to have data to plot", 
+                 closeOnClickOutside = TRUE, showConfirmButton = TRUE, animation = FALSE)
     }
-    
-    bt <- checkBinary(bt, input$rad, "Radiation_Treatment") %>% 
-      checkBinary(., input$surg, "Surgery_Performed") %>% 
-      checkBinary(., input$chemo, "Chemotherapy")
-    
-    if (length(input$mri) > 0) {bt %<>% filter(MRI_Result %in% input$mri)}
-    if (length(input$fam) > 0) {bt %<>% filter(Family_History %in% input$fam)}
+
+    bt <- checkYNBoth(bt, input$rad, "Radiation_Treatment") %>% 
+      checkYNBoth(., input$surg, "Surgery_Performed") %>% 
+      checkYNBoth(., input$chemo, "Chemotherapy") %>% 
+      checkYNBoth(., input$mri, "MRI_Result", true_v = "Positive", false_v = "Negative") %>% 
+      checkYNBoth(., input$fam, "Family_History")
+  
+    if (!is.null(selected_gender())) {
+      bt <- bt %>% filter(Gender == selected_gender())
+    }
     
     if (nrow(bt) == 0) {loadData()}else {bt}
   })
   
-  filtered_plot_data <- reactive({
-    filtered <- baseData()
-    if (!is.null(selected_gender())) {
-      filtered <- filtered %>% filter(Gender == selected_gender())
-    }
-    filtered
+  output$Notes <- renderUI({
+    HTML(paste("Number of rows after filtering: ", nrow(filteredData()), "<br>", 
+               "If filtering options result in empty set, the last adjusted option ", 
+               "is reset to all options selected. <br>", sep = ""))
   })
 
   # ref 2  
   output$densPlot <- renderHighchart({
-    base_data <- baseData()
-    male_age <- base_data %>% filter(Gender == "Male") %>% pull(Age)
-    female_age <- base_data %>% filter(Gender == "Female") %>% pull(Age)
+    base_data <- filteredData()
     
-    male_data <- build_density_data(male_age, "Male", base_data)
-    female_data <- build_density_data(female_age, "Female", base_data)
+    male_data <- base_data %>% filter(Gender == "Male") %>% pull(Age) %>% 
+      build_density_data(., "Male", base_data)
+    female_data <- base_data %>% filter(Gender == "Female") %>% pull(Age) %>% 
+      build_density_data(., "Female", base_data)
+    
     # dens_chart generated using functions.R
-    
     if (!is.null(male_data)) {
       dens_chart <- dens_chart %>%
         hc_add_series(
-          data = male_data, type = "area",
-          color = "rgba(184, 222, 244, 0.1)",
-          lineColor = "rgb(33, 57, 72)",
-          lineWidth = 2, name = "Male"
+          data = male_data, type = "area", color = "rgba(184, 222, 244, 0.1)",
+          lineColor = "rgb(33, 57, 72)", lineWidth = 2, name = "Male"
         )
     }
     
     if (!is.null(female_data)) {
       dens_chart <- dens_chart %>%
         hc_add_series(
-          data = female_data, type = "area",
-          color = "rgba(246, 145, 237, 0.2)",
-          lineColor = "rgb(146, 73, 140)",
-          lineWidth = 2, name = "Female"
+          data = female_data, type = "area", color = "rgba(246, 145, 237, 0.2)",
+          lineColor = "rgb(146, 73, 140)", lineWidth = 2, name = "Female"
         )
     }
     
@@ -136,15 +134,9 @@ server <- function(input, output) {
     }
   })
   
-  output$Notes <- renderUI({
-    HTML(paste("Number of rows after filtering: ", nrow(filtered_plot_data()), "<br>", 
-               "If filtering options result in empty set, the last adjusted option ", 
-               "is reset to all options selected. <br>", sep = ""))
-  })
-  
   
   output$heatPlot <- renderHighchart({
-    mt <- filtered_plot_data() %>%
+    mt <- filteredData() %>% 
       select(all_of(c("Location", "Stage", "Tumor_Size"))) %>% 
       group_by(Location, Stage) %>% 
       summarise(med_size = median(Tumor_Size), .groups = "drop") %>% 
@@ -181,7 +173,7 @@ server <- function(input, output) {
     loc_y <<- quadHM[2]
     
     if (length(stage_x) > 0) {
-      toscatter <- filtered_plot_data() %>% 
+      toscatter <- filteredData() %>% 
         filter(Location == loc_y) %>% filter(Stage == stage_x) %>%
         select(all_of(c("Tumor_Growth_Rate", "Survival_Rate", "Histology")))
       
@@ -220,7 +212,7 @@ server <- function(input, output) {
     
     i <- which(perplexity_values == as.numeric(as.character(input$perp)))
     
-    color_column <- as.data.frame(baseData())[, input$color_dr]
+    color_column <- as.data.frame(filteredData())[, input$color_dr]
     
     br_res <- tsne_res[[i]]$res
     br_dat <- data.frame(br_res$Y)

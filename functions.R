@@ -15,30 +15,21 @@ radGrpBtns <- function(id, lbl, chc = c("Yes", "No", "Both")) {
                     choices = chc, selected = last(chc))
 }
 
-
 # ------------------------------------------------------------------------------
-toScatter <- function(base, x, y) {
-  base %>% 
-    filter(Location == y) %>% 
-    filter(Stage == x) %>% 
-    select(all_of(c("Tumor_Growth_Rate", "Survival_Rate", "Histology"))) %>% return()
-}
-
 loadData <- function() {
-  read.csv("brain_tumor_dataset.csv") %>%
-    as_tibble %>% arrange(-Tumor_Growth_Rate)
+  read.csv("brain_tumor_dataset.csv") %>% as_tibble %>% arrange(-Tumor_Growth_Rate)
 }
 
 colOpts <- function(df, colx) {
   df %>% select(all_of(colx)) %>% pull() %>% unique() %>% 
-    sort(., decreasing = TRUE) %>% c(., "Both") %>% unique()
+    sort(., decreasing = TRUE)
 }
 
-checkBinary <- function(base_tbl, inp, colx) {
-  if (("Yes" %in% inp) & !("No" %in% inp)) {
-    base_tbl <- filter(base_tbl, .data[[colx]] == "Yes")
-  }else if (("No" %in% inp) & !("Yes" %in% inp)) {
-    base_tbl <- filter(base_tbl, .data[[colx]] == "Yes")
+checkYNBoth <- function(base_tbl, inp, colx, true_v = "Yes", false_v = "No") {
+  if (inp == "Yes") {
+    base_tbl <- filter(base_tbl, .data[[colx]] == true_v)
+  }else if (inp == "No") {
+    base_tbl <- filter(base_tbl, .data[[colx]] == false_v)
   }
   # otherwise no change: "Both" and other implies do not filter, use all data
   return(base_tbl)
