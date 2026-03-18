@@ -69,6 +69,10 @@ ui <- page_fillable(
 # Server logic
 server <- function(input, output) {
 
+  # Reactive value for selected gender
+  selected_gender <- reactiveVal(NULL)
+  clickedHM <- reactiveVal(NULL)
+  
   baseData <- reactive({
     bt <- loadData()
     if (length(input$sym) > 0) {
@@ -85,26 +89,65 @@ server <- function(input, output) {
     
     if (nrow(bt) == 0) {loadData()}else {bt}
   })
+  
+  filtered_plot_data <- reactive({
+    filtered <- baseData()
+    
+    if (!is.null(selected_gender())) {
+      filtered <- filtered %>% filter(Gender == selected_gender())
+    }
+    
+    filtered
+  })
 
   # ref 2  
   output$densPlot <- renderHighchart({
-    mdata <- baseData() %>% filter(Gender == "Male") %>% pull(Age) %>% density()
-    fdata <- baseData() %>% filter(Gender == "Female") %>% pull(Age) %>% density()
+    base_data <- baseData()
+    male_age <- base_data %>% filter(Gender == "Male") %>% pull(Age)
+    female_age <- base_data %>% filter(Gender == "Female") %>% pull(Age)
     
-    # ref 1
-    legDP <- JS("function(event) {Shiny.onInputChange('legendItemClick', [this.name, this.visible]);}")
+    male_data <- build_density_data(male_age, "Male", base_data)
+    female_data <- build_density_data(female_age, "Female", base_data)
+    # dens_chart generated using functions.R
     
-    hchart(mdata, type = "area", color = "steelblue", name = "Male") %>% 
-      hc_add_series(fdata, type = "area", color = "darkgreen", name = "Female") %>% 
-      hc_title(text = "Population density by age, grouped by gender") %>% 
-      hc_xAxis(title = list(text = "Age")) %>% 
-      hc_yAxis(title = list(text = "Population Density")) %>% 
-      hc_plotOptions(series = list(events = list(legendItemClick = legDP)))
+    if (!is.null(male_data)) {
+      dens_chart <- dens_chart %>%
+        hc_add_series(
+          data = male_data,
+          type = "area",
+          color = "rgba(184, 222, 244, 0.1)",
+          lineColor = "rgb(33, 57, 72)",
+          lineWidth = 2,
+          name = "Male"
+        )
+    }
+    
+    if (!is.null(female_data)) {
+      dens_chart <- dens_chart %>%
+        hc_add_series(
+          data = female_data,
+          type = "area",
+          color = "rgba(246, 145, 237, 0.2)",
+          lineColor = "rgb(146, 73, 140)",
+          lineWidth = 2,
+          name = "Female"
+        )
+    }
+    
+    if (is.null(male_data) && is.null(female_data)) {
+      dens_chart <- dens_chart %>%
+        hc_subtitle(text = "No density data available for the current filters.")
+    }
+    
+    dens_chart
   })
   
-  age_gender <- reactiveValues(Male = TRUE, Female = TRUE)
-  observeEvent(input$legendItemClick, {
-    age_gender[[input$legendItemClick[1]]] <<- !age_gender[[input$legendItemClick[1]]]
+  observeEvent(input$legendClick, {
+    if (identical(selected_gender(), input$legendClick)) {
+      selected_gender(NULL)
+    } else {
+      selected_gender(input$legendClick)
+    }
   })
   
   output$Notes <- renderUI({
@@ -115,19 +158,25 @@ server <- function(input, output) {
   
   
   output$heatPlot <- renderHighchart({
-    mt <- baseData() %>% filterByGen(., age_gender) %>% 
+    mt <- filtered_plot_data() %>% 
       select(all_of(c("Location", "Stage", "Tumor_Size"))) %>% group_by(Location, Stage) %>% 
-      summarise(med_size = median(Tumor_Size))#, .groups = c("Location", "Stage"))
+      summarise(med_size = median(Tumor_Size), .groups = "drop") %>% 
+      complete(Location, Stage, fill = list(med_size = NA_real_))
+    
     pt <- pivot_wider(mt, names_from = c("Stage"), values_from = "med_size") %>% as.data.frame()
     rownames(pt) <- pt[,"Location"]
-    pt <- as.matrix(pt[1:4,2:5])
+    pt <- as.matrix(pt[, setdiff(names(pt), "Location"), drop = FALSE]) # as.matrix(pt[1:4,2:5])
     
     # ref 1
     clickHM <- JS("function(event) {Shiny.onInputChange('Clicked', event.point.name);}")
     
     hchart(pt) %>% 
       hc_legend(enabled = TRUE) %>%
-      hc_title(text = "Brain Location vs Stage") %>%
+      hc_title(text = if (!is.null(selected_gender())) {
+        paste0("Brain Location vs Stage (", selected_gender(), ")")
+      } else {
+        "Brain Location vs Stage"
+      }) %>% 
       hc_colorAxis(minColor = "yellow", maxColor = "red") %>% 
       hc_plotOptions(series = list(events = list(click = clickHM)))
   })
@@ -137,21 +186,15 @@ server <- function(input, output) {
   observeEvent(input$Clicked, {
     quadHM <<- strsplit(paste0(input$Clicked), split="~") %>% unlist %>% trimws
     quadHM <- list("stage" = quadHM[1], "loc" = quadHM[2])
-    print(paste0(quadHM, ", "))
   })
   
-  output$selectedElem <- renderText({
-    if (length(quadHM) > 0) {
-      paste0("Selected brain location: ", quadHM[2], ", stage: ", quadHM[1])
-    }
-  })
 
   output$scatPlot <- renderHighchart({
     stage_x <<- quadHM[1]
     loc_y <<- quadHM[2]
     
     if (length(stage_x) > 0) {
-      toscatter <- baseData() %>% filterByGen(., age_gender) %>% 
+      toscatter <- filtered_plot_data() %>% 
         filter(Location == loc_y) %>% filter(Stage == stage_x) %>%
         select(all_of(c("Tumor_Growth_Rate", "Survival_Rate", "Histology")))
       
@@ -161,7 +204,8 @@ server <- function(input, output) {
         hc_xAxis(title = list(text = "Tumor Growth Rate")) %>% 
         hc_yAxis(title = list(text = "Survival Rate")) %>% 
         hc_title(text = paste0("Tumor growth vs survival rate for stage ", 
-                               stage_x, " and the ", loc_y, " lobe")) %>% 
+                               stage_x, " and the ", loc_y, " lobe",
+                               if (!is.null(selected_gender())) paste0(" (", selected_gender(), ")") else "")) %>% 
         hc_plotOptions(series = list(
           states = list(inactive = list(opacity = 0.2))))
     }
