@@ -1,8 +1,3 @@
-# Global variables -------------------------------------------------------------
-# tsne_inputs <- c("Age, tumor size, survival rate, tumor growth rate, location" = "m1", 
-#                  "Tumor size, survival rate, tumor growth rate, radiation treatment, surgery performed, chemotherapy, MRI result" = "m2", 
-#                  "Age, gender, tumor type, tumor size, location, histology, stage, symptom 1, symptom 2, symptom 3, radiation treatment, surgery performed, chemotherapy, survival rate, tumor growth rate, family history, MRI result" = "m3", 
-#                  "Tumor type, tumor size, location, stage, symptom 1, symptom_2, symptom 3, radiation treatment, surgery performed, chemotherapy, survival rate, tumor growth rate, MRI result, follow up required" = "m4")
 
 # UI functions -----------------------------------------------------------------
 chkBoxGroupBin <- function(id, lbl) {
