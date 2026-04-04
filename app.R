@@ -1,32 +1,21 @@
 library(shiny); library(shinyWidgets)
 libs <- c("tidyverse", "dplyr", "magrittr", "readr", "ggplot2", "janitor", 
-          "data.table", "DT", "rlc", "bslib", "plotly", "highcharter", "tidyr")
+          "data.table", "DT", "rlc", "bslib", "plotly", "highcharter", "tidyr", 
+          "umap", "shinyjs", "Rtsne", "RColorBrewer")
 y <- suppressPackageStartupMessages(lapply(libs, require, character.only = TRUE))
 
 source("functions.R")
-
+source("global_variables.R")
 # ref 1: https://stackoverflow.com/questions/48887731/highcharter-click-event-to-filter-data-from-graph/48890125#48890125
 # ref 2: https://www.datanovia.com/en/lessons/highchart-interactive-density-and-histogram-plots-in-r/
 # ref 3: https://www.geeksforgeeks.org/r-language/t-distributed-stochastic-neighbor-embedding-t-sne-using-r/
 # ref 4: https://stackoverflow.com/questions/67625405/is-there-a-way-to-put-labels-next-to-an-input-box-in-shiny
 
-base_dt <- loadData()
-perplexity_values <- c(10,20,30,40,50,60,70,80,90,100)
-symptom_list <- colOpts(base_dt, c("Symptom_1", "Symptom_2", "Symptom_3"))
-treatment_list <- c("Radiation_Treatment", "Surgery_Performed", "Chemotherapy")
-# tsne_column_choices <- c("m1", "m2", "m3", "m4")
-
-dr_col_choices <- list.files("dr/tsne") %>% gsub(".Rds", "", .) %>% 
-  grep("i", ., invert = TRUE, value = TRUE)
-dr_full_names <- lapply(dr_col_choices, function(x) {
-  readRDS(paste0("dr/tsne/", x, ".Rds")) %>% paste0(., collapse = ", ")
-}) %>% unlist()
-
 # UI logic
 ui <- page_fillable(
   navset_card_underline(
-    id = "main_nav",
-    nav_panel("Home", value = "home",
+    id = "main_nav", title = "BTVis", 
+    nav_panel(title = "Home", value = "home",
       layout_column_wrap(
         width = 1/2,
         card(
@@ -63,41 +52,43 @@ ui <- page_fillable(
       title = "Dimensionality reduction",
       layout_columns(
         col_widths = c(3,6,3), 
-        card(
-          prettyRadioButtons(inputId = "dr_type", label = "Dimensionality reduction type", 
-                             choices = c("t-SNE", "UMAP", "PCA"), selected = "t-SNE", 
-                             status = "primary", shape = "curve", bigger = TRUE, 
-                             fill = TRUE, thick = TRUE),
-          selectInput(inputId = "dr_columns", width = "400px", 
-                      choices = setNames(dr_col_choices, nm = dr_full_names), 
-                      label = "Columns selected for input into dimensionality reduction methods"),
-          selectInput(inputId = "color_dr", label = "Color encoding for plot",
-                      choices = c("Gender", `Tumor Type` = "Tumor_Type", `Brain lobe (Location)` = "Location",
-                                  "Histology", "Stage"), selected = "Gender"),
-          uiOutput("DRSelected"), 
-          textOutput("DRExplanation")
+        layout_columns(
+          col_widths = 12, row_heights = c(2,10),
+          card(
+            card_header("Dimensionality reduction type"),
+            prettyRadioButtons(inputId = "dr_type", label = "Select a technique", 
+                               choices = c("t-SNE", "UMAP", "PCA"), 
+                               selected = "t-SNE", status = "primary", shape = "round", 
+                               bigger = TRUE, fill = TRUE, thick = TRUE, inline = TRUE)
+          ), 
+          card(
+            card_header("Use saved runs"),
+            selectInput(inputId = "dr_columns", width = "400px", 
+                        choices = setNames(dr_col_choices, nm = dr_full_names), 
+                        label = "Columns selected for input into dimensionality reduction methods"),
+            selectInput(inputId = "color_dr", label = "Color encoding for plot",
+                        choices = colnames(select(base_dt, -Patient_ID)), selected = "Tumor_Size"),
+            selectInput(inputId = "color_palette", label = "Color palette", choices = cnames, selected = "YlGnBu"),
+            uiOutput("DRSelected")
+          )
         ), 
         card(plotlyOutput("DRPlot", width = "auto", height = "auto")), 
-        card(
-          useShinyjs(),
-          textOutput("DRInstructions"), 
-          materialSwitch(inputId = "new_run_tog", label = "See inputs for new run:", 
-                         value = FALSE, status = "success"),
-          uiOutput("DRNewInputs")
+        
+        layout_columns(
+          col_widths = 12, row_heights = c(3,9), 
+          card(textOutput("DRExplanation")), 
+          card(card_header("New run"), fill = FALSE, useShinyjs(),
+               card_body(
+                 paste0("Select columns of data to input into a new run. ", 
+                        "This may take some time. Data will be saved and available for plotting ", 
+                        "when app is next refreshed."),
+                 materialSwitch(inputId = "new_run_tog", label = "See inputs for new run:", 
+                                value = FALSE, status = "success")), 
+               card_body(uiOutput("DRNewInputs"))
+          )
         )
       )
     )
-    # nav_panel("Dimensionality Reduction", value = "dimred",
-    #           page_sidebar(sidebar = sidebar(
-    #             selectInput(inputId = "tsne_columns", label = "Columns input into t-SNE", width = "400px",
-    #                         choices = tsne_column_choices),
-    #             selectInput(inputId = "color_dr", label = "Color encoding for t-SNE plot",
-    #                         choices = c("Gender", `Tumor Type` = "Tumor_Type", `Brain lobe (Location)` = "Location",
-    #                                     "Histology", "Stage"), selected = "Gender"),
-    #             sliderInput(inputId = "perp", label = "Perplexity value",
-    #                         min = 10, max = 100, step = 10, animate = TRUE, value = 50)),
-    #             uiOutput("dimredPlotContainer")
-    #           ))
   )
 )
 
@@ -607,8 +598,24 @@ server <- function(input, output) {
   # }), input$main_nav, input$tsne_columns, input$perp, input$color_dr, filteredData(),
   # ignoreInit = TRUE)
   
+  
   output$DRExplanation <- renderText({
-    "Notes on selected dimensionality reduction technique. "
+    if (input$dr_type == "t-SNE") {
+      paste0(
+        "t-SNE (t-Distributed Stochastic Neighbor Embedding) is a nonlinear ", 
+        "dimensionality reduction technique. A focus is on understanding ", 
+        "the structure of local neighborhoods in the data")
+    }else if (input$dr_type == "PCA") {
+      paste0(
+        "PCA (Principal Component Analysis) is a linear dimensionality reduction ", 
+        "technique. A focus is on understanding the structure of global ", 
+        "variance in the data")
+    }else if (input$dr_type == "UMAP") {
+      paste0(
+        "UMAP (Uniform Manifold Approximation and Projection) is a nonlinear ", 
+        "technique for dimensionality reduction. A focus is on understanding ", 
+        "the structure of local neighborhoods in the data")
+    }
   })
   
   output$DRSelected <- renderUI({
@@ -616,12 +623,6 @@ server <- function(input, output) {
       tagList(sliderInput(inputId = "perp", label = "Perplexity value",
                           min = 10, max = 100, step = 10, animate = TRUE, value = 50))
     }
-  })
-  
-  output$DRInstructions <- renderText({
-    paste0("Select columns of data to input into a new ", input$dr_type, " run. ", 
-           "This may take some time. Data will be saved and available for plotting ", 
-           "when app is next refreshed.")
   })
   
   observeEvent(input$new_run_tog, {
@@ -634,9 +635,11 @@ server <- function(input, output) {
   
   output$DRNewInputs <- renderUI({
     tagList(
-      prettyCheckboxGroup(inputId = "new_dr_cols", label = "Columns for input",
-                          choices = colnames(select(base_dt, -Patient_ID, -`.row_id`)),
-                          outline = TRUE, plain = TRUE, status = "info", icon = icon("check")), 
+      pickerInput("new_dr_cols", paste0("Columns for input into ", input$dr_type, ":"), 
+                  choices = colnames(select(base_dt, -Patient_ID, -`.row_id`)),
+                  multiple = TRUE,
+                  options = pickerOptions(actionsBox = TRUE, size = length(symptom_list),
+                                          selectAllText = "All selected", dropupAuto = TRUE)),
       if(input$dr_type == "t-SNE") {
         numericInput(inputId = "new_run_iter", label = "Number of iterations", value = 3000, min = 500, max = 3000)}, 
       actionButton(inputId = "new_run_btn", label = "Start new run")
@@ -694,7 +697,6 @@ server <- function(input, output) {
           grep("set", ., value = TRUE) %>% gsub(".Rds", "", .) %>% unique() %>% 
           gsub("set", "", .) %>% as.numeric() %>% max() %>% sum(., 1) %>% paste0("set", .)
         saveRDS(inp_cols, paste0("dr/pca/", m_name, ".Rds"))
-        
         pca_res <- prcomp(br_mat)
         saveRDS(pca_res, paste0("dr/pca/", m_name, "_res.Rds"))
       }  
@@ -706,46 +708,47 @@ server <- function(input, output) {
   # # Tab 2: Dimensionality Reduction and Clustering -----------------------------
   tsne_cache <- reactiveVal(list())
   
+  plotSavedTSNE <- reactive({
+    cache_key <- paste(input$dr_columns, formatC(as.numeric(input$perp), flag = "0", width = 3), sep = "_")
+    cached_tsne <- tsne_cache()
+    if (is.null(cached_tsne[[cache_key]])) {
+      cached_tsne[[cache_key]] <- load_tsne_embedding(input$dr_columns, input$perp)
+      tsne_cache(cached_tsne)
+    }
+    with_color <- base_dt %>% select(.row_id, ColorBy = all_of(input$color_dr))
+    cached_tsne[[cache_key]] %>% inner_join(with_color, by = ".row_id") %>% return()
+  })
+  
   output$DRPlot <- bindEvent(renderPlotly({
-    colors <- c("#E6194B", "#3CB44B", "#FFE119", "#4363D8", "#F58231", 
-                "#911EB4", "#46F0F0", "#F032E6", "#BCF60C", "#FABEBE")
-    
-    run_x <- as.character(input$dr_columns)
     dr_res <- data.frame()
+    br_color <- pull(base_dt, input$color_dr)
+    
     if (input$dr_type == "t-SNE") {
-      
-      cache_key <- paste(run_x, formatC(as.numeric(input$perp), flag = "0", width = 3), sep = "_")
-      cached_tsne <- tsne_cache()
-      
-      if (is.null(cached_tsne[[cache_key]])) {
-        cached_tsne[[cache_key]] <- load_tsne_embedding(run_x, input$perp)
-        tsne_cache(cached_tsne)
-      }
-      
-      with_color <- base_dt %>% select(.row_id, ColorBy = all_of(input$color_dr))
-      dr_res <- cached_tsne[[cache_key]] %>% inner_join(with_color, by = ".row_id")
+      dr_res <- plotSavedTSNE()
       
     }else if (input$dr_type == "UMAP") {
-      br_color <- base_dt %>% select(-Patient_ID) %>% pull(input$color_dr)
-      um <- readRDS(paste0("dr/umap/", run_x, "_nn100_d3_epoch600.Rds"))
-      
+      um <- readRDS(paste0("dr/umap/", input$dr_columns, "_nn100_d3_epoch600.Rds"))
       dr_res <- um$layout %>% set_colnames(c("Dim1", "Dim2", "Dim3")) %>% 
         as.data.frame() %>% mutate(ColorBy = br_color)
       
     }else if (input$dr_type == "PCA") {
-
-      # pca_res <- prcomp(br_mat); # summary(pca_res)
-      pca_res <- paste0("dr/pca/", run_x, "_res.Rds") %>% readRDS()
+      pca_res <- paste0("dr/pca/", input$dr_columns, "_res.Rds") %>% readRDS()
       dr_res <- as.data.frame(pca_res$x) %>% select(c("PC1", "PC2", "PC3")) %>% 
-        set_colnames(c("Dim1", "Dim2", "Dim3")) %>% mutate(ColorBy = pull(br, input$color_dr))
+        set_colnames(c("Dim1", "Dim2", "Dim3")) %>% mutate(ColorBy = br_color)
     }
     
     validate(need(nrow(dr_res) > 0, paste0("No ", input$dr_type, " points are available for the current filters.")))
-    plot_ly(dr_res, x = ~Dim1, y = ~Dim2, z = ~Dim3, type = "scatter3d", mode = "markers", 
-            colors = colors, marker = list(size = 6), color = ~ColorBy)
     
-  }), input$main_nav, input$dr_type, input$dr_columns, input$perp, 
-  input$color_dr, base_dt, ignoreInit = TRUE)
+    col_palette <- brewer.pal(n = 8, name = input$color_palette)
+    cols <- colorRampPalette(col_palette)(length(unique(br_color)))
+    
+    plot_ly(dr_res, x = ~Dim1, y = ~Dim2, z = ~Dim3, type = "scatter3d", mode = "markers", 
+            colors = cols, marker = list(size = 6), color = ~ColorBy)
+    
+  }), input$dr_type, input$dr_columns, input$perp, input$color_dr, 
+  input$color_palette, ignoreInit = TRUE)
+  
+  
   
 }
 
