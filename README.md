@@ -4,12 +4,14 @@
 
  - Going to add in explanatory comments within next day or so
 
- - *app.R* is for preliminary layout/design testing, reads *brain_tumor_dataset.csv* and *functions.R*
-
- - *linked_chart_eg1.R* is standalone example of linked charts (first attempt before app) - less options with this approach
-
- - *tsne_exploratory.R* is a standalone example of a plot we could use to visualize the dimensionality reduction performed by t-SNE. This could be a user option of t-SNE or PCA, to see if there are any potential cluster groups (this could be pre-run for several perplexity values and the user could flip through them). We could add this as a secondary tab beside the age-gender plot.
+ - *app.R* contains the UI and server logic, reads *brain_tumor_dataset.csv*, *functions.R*, and *global_variables.R* (the latter being elements like a list of color palettes for the input controls).
 
  - *functions.R* is file of miscellaneous plot/ui/filter functions
 
- - *tsne_out/* is directory of outputs when varying perplexity values and input columns for t-SNE
+ - *dr/* is directory of the outputs from saved dimensionality reduction runs
+
+    - *dr/tsne/*: outputs from varying perplexity values and input columns for t-SNE. User can vary number of iterations during new runs. Saved runs are for 3 dimensions, 3000 iterations. 
+
+    - *dr/pca/*: outputs from varied input columns for PCA
+
+    - *dr/umap/*: outputs from varied input columns for UMAP. Saved runs are for 3 or 2 dimensions, epoch 600 or 200 respectively.
