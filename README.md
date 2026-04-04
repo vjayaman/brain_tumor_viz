@@ -2,8 +2,6 @@
 
 ### Interactive visualization tool for final project in Comp 7920
 
- - Going to add in explanatory comments within next day or so
-
  - *app.R* contains the UI and server logic, reads *brain_tumor_dataset.csv*, *functions.R*, and *global_variables.R* (the latter being elements like a list of color palettes for the input controls).
 
  - *functions.R* is file of miscellaneous plot/ui/filter functions
