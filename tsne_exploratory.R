@@ -12,32 +12,41 @@ set.seed(42)
 colors <- c("#E6194B", "#3CB44B", "#FFE119", "#4363D8", "#F58231", "#911EB4", "#46F0F0", "#F032E6", "#BCF60C", "#FABEBE")
 
 br <- loadData()
-# br_red <- br %>% select(Age, Tumor_Type, Tumor_Size, Tumor_Growth_Rate)
 
-# m1: 
-# c("Age", "Tumor_Size", "Survival_Rate", "Tumor_Growth_Rate", "Location") %>% saveRDS(., "m1.Rds")
+# m1 <- c("Age", "Tumor_Size", "Survival_Rate", "Tumor_Growth_Rate", "Location")
+# saveRDS(m1, "tsne_out/m1.Rds")
 
-# m2: 
-# c("Tumor_Size", "Survival_Rate", "Tumor_Growth_Rate", "Radiation_Treatment", 
-#   "Surgery_Performed", "Chemotherapy", "MRI_Result") %>% saveRDS(., "m2.Rds")
+# m2 <- c("Tumor_Size", "Survival_Rate", "Tumor_Growth_Rate", "Radiation_Treatment",
+#         "Surgery_Performed", "Chemotherapy", "MRI_Result")
+# saveRDS(m2, "tsne_out/m2.Rds")
 
-# m3: 
-# c("Age", "Gender", "Tumor_Type", "Tumor_Size", "Location", "Histology",
-#   "Stage", "Symptom_1", "Symptom_2", "Symptom_3", "Radiation_Treatment", "Surgery_Performed",
-#   "Chemotherapy", "Survival_Rate", "Tumor_Growth_Rate", "Family_History", "MRI_Result") %>%
-#   saveRDS(., "m3.Rds")
+# m3 <- c("Age", "Gender", "Tumor_Type", "Tumor_Size", "Location", "Histology",
+#         "Stage", "Symptom_1", "Symptom_2", "Symptom_3", "Radiation_Treatment",
+#         "Surgery_Performed", "Chemotherapy", "Survival_Rate", "Tumor_Growth_Rate",
+#         "Family_History", "MRI_Result")
+# saveRDS(m3, "tsne_out/m3.Rds")
 
-# m4:
 # removed Patient_ID, Age, Gender, Histology, Family_History
-# c("Tumor_Type", "Tumor_Size", "Location", "Stage", "Symptom_1", 
-#   "Symptom_2", "Symptom_3", "Radiation_Treatment", "Surgery_Performed", 
-#   "Chemotherapy", "Survival_Rate", "Tumor_Growth_Rate", 
-#   "MRI_Result", "Follow_Up_Required") %>% saveRDS(., "m4.Rds")
+# m4 <- c("Tumor_Type", "Tumor_Size", "Location", "Stage", "Symptom_1",
+#         "Symptom_2", "Symptom_3", "Radiation_Treatment", "Surgery_Performed",
+#         "Chemotherapy", "Survival_Rate", "Tumor_Growth_Rate",
+#         "MRI_Result", "Follow_Up_Required")
+# saveRDS(m4, "tsne_out/m4.Rds")
 
-br_red <- br %>% select(all_of(c("Tumor_Type", "Tumor_Size", "Location", "Stage", "Symptom_1", 
-                                 "Symptom_2", "Symptom_3", "Radiation_Treatment", "Surgery_Performed", 
-                                 "Chemotherapy", "Survival_Rate", "Tumor_Growth_Rate", 
-                                 "MRI_Result", "Follow_Up_Required")))
+m5 <- c("Age", "Gender", "Tumor_Type", "Tumor_Size", "Location", "Histology",
+        "Stage", "Symptom_1", "Symptom_2", "Symptom_3", "Radiation_Treatment",
+        "Surgery_Performed", "Chemotherapy", "Survival_Rate", "Tumor_Growth_Rate",
+        "Family_History", "MRI_Result", "Follow_Up_Required")
+# saveRDS(m5, "tsne_out/m5.Rds")
+
+# m6 <- c("Age", "Tumor_Size", "Stage", "Symptom_1", "Symptom_2", "Symptom_3", 
+#         "Radiation_Treatment", "Surgery_Performed", "Chemotherapy", "Survival_Rate", 
+#         "Tumor_Growth_Rate", "Family_History", "MRI_Result", "Follow_Up_Required")
+# saveRDS(m6, "tsne_out/m6.Rds")
+
+# m_name <- "m4"
+
+br_red <- br %>% select(all_of(m4))
 
 char_cols <- sapply(br_red, class) %>% grep("character", ., , value = TRUE) %>% names()
 br_mat <- br_red %>% 
@@ -49,17 +58,17 @@ n_iter <- 3000
 n_dims <- 3
 perplexity_values <- c(10,20,30,40,50,60,70,80,90,100)
 
-# for (p in perplexity_values) {
-#   print(paste0("Perplexity value: ", p))
-#   br_res <- Rtsne(br_mat, dims = n_dims, perplexity = p, verbose = TRUE,
-#                   max_iter = n_iter, normalize = TRUE, num_threads = 0)
-#   list(n_iter, n_dims, perp = p, res = br_res) %>%
-#     saveRDS(., paste0("tsne_out/i", n_iter, "_d", n_dims, "_p", p, ".Rds"))
-# 
-# }
+for (p in perplexity_values) {
+  print(paste0("Perplexity value: ", p))
+  br_res <- Rtsne(br_mat, dims = n_dims, perplexity = p, verbose = TRUE,
+                  max_iter = n_iter, normalize = TRUE, num_threads = 0)
+  list(n_iter, n_dims, perp = p, res = br_res) %>%
+    saveRDS(., paste0("tsne_out/", m_name, "_i", n_iter, "_d", n_dims, "_p", p, ".Rds"))
+
+}
 
 tsne_res <- lapply(perplexity_values, function(p) {
-  paste0("tsne_out/i", n_iter, "_d", n_dims, "_p", p, ".Rds") %>% readRDS()  
+  paste0("tsne_out/", m_name, "_i", n_iter, "_d", n_dims, "_p", p, ".Rds") %>% readRDS()  
 }) %>% set_names(., paste0("p", perplexity_values))
 
 i <- 10
@@ -74,11 +83,64 @@ plot_ly(br_dat, x = ~Dim1, y = ~Dim2, z = ~Dim3,
         marker = list(size = 6), color = ~ColorBy)
 
 
-set.seed(100)
-br_kmeans <- kmeans(br_res$Y, centers = 3, iter.max = 3000, algorithm = "Lloyd")
-fviz_cluster(br_kmeans, br_res$Y)
+# set.seed(100)
+# br_kmeans <- kmeans(br_res$Y, centers = 3, iter.max = 3000, algorithm = "Lloyd")
+# fviz_cluster(br_kmeans, br_res$Y)
 
 
 # br_dat$ColorBy <- findInterval(br_dat$ColorBy, c(0.5,1,1.5,2,2.5,3)) %>% as.character()
 # saveRDS(br_res, paste0("stand_nogen_dims-", n_dims, "_perp-", n_perp, "_iter-", n_iter, ".Rds"))
+
+# PCA RESULTS ------------------------------------------------------------------
+
+br <- loadData() %>% select(-Patient_ID)
+
+br_red <- br %>% select(all_of(m5))
+
+char_cols <- sapply(br_red, class) %>% grep("character", ., , value = TRUE) %>% names()
+br_mat <- br_red %>% 
+  mutate(across(all_of(char_cols), ~ as.numeric(as.factor(.x)))) %>% 
+  as.matrix() %>% unique() %>% scale() %>% unique()
+
+pca_res <- prcomp(br_mat)
+
+summary(pca_res)
+
+scores <- as.data.frame(pca_res$x)
+
+
+
+plot_ly(scores, x = ~scores$PC1, y = ~scores$PC2, z = ~scores$PC3,
+        type = "scatter3d", mode = "markers", 
+        colors = colors, marker = list(size = 6))   
+
+
+# UMAP RESULTS -----------------------------------------------------------------
+
+
+
+for (run_x in c("set1", "set2", "set3", "set4", "set5", "set6")) {
+  br <- loadData() %>% select(-Patient_ID)
+  inp_cols <- readRDS(paste0("tsne_out/", run_x, ".Rds"))
+  br_red <- br %>% select(all_of(inp_cols))
+  char_cols <- sapply(br_red, class) %>% grep("character", ., , value = TRUE) %>% names()
+  br_mat <- br_red %>%
+    mutate(across(all_of(char_cols), ~ as.numeric(as.factor(.x)))) %>%
+    as.matrix() %>% unique() %>% scale() %>% unique()
+  um <- umap(br_mat, n_neighbors = 100, metric = "euclidean", init = "spectral",
+             verbose = TRUE, n_components = 3, n_epochs = 600)
+  saveRDS(um, paste0("umap_out/", run_x, "_nn100_d3.Rds"))
+}
+
+
+
+
+
+
+
+
+
+
+
+
 

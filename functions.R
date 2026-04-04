@@ -1,8 +1,8 @@
 # Global variables -------------------------------------------------------------
-tsne_inputs <- c("Age, tumor size, survival rate, tumor growth rate, location" = "m1", 
-                 "Tumor size, survival rate, tumor growth rate, radiation treatment, surgery performed, chemotherapy, MRI result" = "m2", 
-                 "Age, gender, tumor type, tumor size, location, histology, stage, symptom 1, symptom 2, symptom 3, radiation treatment, surgery performed, chemotherapy, survival rate, tumor growth rate, family history, MRI result" = "m3", 
-                 "Tumor type, tumor size, location, stage, symptom 1, symptom_2, symptom 3, radiation treatment, surgery performed, chemotherapy, survival rate, tumor growth rate, MRI result, follow up required" = "m4")
+# tsne_inputs <- c("Age, tumor size, survival rate, tumor growth rate, location" = "m1", 
+#                  "Tumor size, survival rate, tumor growth rate, radiation treatment, surgery performed, chemotherapy, MRI result" = "m2", 
+#                  "Age, gender, tumor type, tumor size, location, histology, stage, symptom 1, symptom 2, symptom 3, radiation treatment, surgery performed, chemotherapy, survival rate, tumor growth rate, family history, MRI result" = "m3", 
+#                  "Tumor type, tumor size, location, stage, symptom 1, symptom_2, symptom 3, radiation treatment, surgery performed, chemotherapy, survival rate, tumor growth rate, MRI result, follow up required" = "m4")
 
 # UI functions -----------------------------------------------------------------
 chkBoxGroupBin <- function(id, lbl) {
@@ -17,7 +17,24 @@ radGrpBtns <- function(id, lbl, chc = c("Yes", "No", "Both")) {
 
 # ------------------------------------------------------------------------------
 loadData <- function() {
-  read.csv("brain_tumor_dataset.csv") %>% as_tibble %>% arrange(-Tumor_Growth_Rate)
+  read.csv("brain_tumor_dataset.csv") %>%
+    as_tibble() %>%
+    arrange(-Tumor_Growth_Rate) %>%
+    mutate(.row_id = row_number())
+}
+
+load_tsne_embedding <- function(run_x, perp) {
+  pval <- as.numeric(perp)
+  # pval <- formatC(as.numeric(perp), flag = "0", width = 3)
+  tsne_file <- file.path("dr/tsne", paste0(run_x, "_i3000_d3_p", pval, ".Rds"))
+  br_res <- readRDS(tsne_file)$res$Y
+
+  tibble(
+    .row_id = seq_len(nrow(br_res)),
+    Dim1 = br_res[, 1],
+    Dim2 = br_res[, 2],
+    Dim3 = br_res[, 3]
+  )
 }
 
 colOpts <- function(df, colx) {
