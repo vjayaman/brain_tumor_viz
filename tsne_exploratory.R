@@ -78,10 +78,6 @@ br_dat <- data.frame(br_res$Y)
 color_column <- br %>% pull("Age")
 br_dat$ColorBy <- color_column[!duplicated(br_mat)]
 colnames(br_dat) <- c("Dim1", "Dim2", "Dim3", "ColorBy")
-plot_ly(br_dat, x = ~Dim1, y = ~Dim2, z = ~Dim3,
-        type = "scatter3d", mode = "markers", colors = colors, 
-        marker = list(size = 6), color = ~ColorBy)
-
 
 # set.seed(100)
 # br_kmeans <- kmeans(br_res$Y, centers = 3, iter.max = 3000, algorithm = "Lloyd")
@@ -107,12 +103,6 @@ pca_res <- prcomp(br_mat)
 summary(pca_res)
 
 scores <- as.data.frame(pca_res$x)
-
-
-
-plot_ly(scores, x = ~scores$PC1, y = ~scores$PC2, z = ~scores$PC3,
-        type = "scatter3d", mode = "markers", 
-        colors = colors, marker = list(size = 6))   
 
 
 # UMAP RESULTS -----------------------------------------------------------------
