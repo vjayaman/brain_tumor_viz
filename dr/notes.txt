@@ -1,0 +1,1 @@
+Directory of saved runs for dimensionality reduction section. Each "set" is for a different group of columns. For example, we may run UMAP on only the numerical columns in our data, or convert and normalize the categorical to numerical and then run including those as well.
