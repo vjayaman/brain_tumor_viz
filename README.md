@@ -2,9 +2,11 @@
 
 ### Interactive visualization tool for final project in Comp 7920
 
- - *app.R* contains the UI and server logic, reads *brain_tumor_dataset.csv*, *functions.R*, and *global_variables.R* (the latter being elements like a list of color palettes for the input controls).
+ - *app.R* contains the UI and server logic, reads *brain_tumor_dataset.csv*, *functions.R*, and *global_variables.R*
 
  - *functions.R* is file of miscellaneous plot/ui/filter functions
+
+ - *global_variables.R* is a file of elements useful for input controls like a list of color palettes
 
  - *dr/* is directory of the outputs from saved dimensionality reduction runs
 
