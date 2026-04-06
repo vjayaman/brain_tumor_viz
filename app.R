@@ -34,13 +34,18 @@ ui <- page_fillable(
                                                 selectAllText = "All selected", dropupAuto = TRUE))
           ),
           layout_column_wrap(
-            width = 1/2,
+            width = 1/3,
             radioGroupButtons(inputId = "sel_mri", label = "MRI result", 
                               size = "sm", direction = "horizontal", selected = "Both", 
                               choices = c("Positive" = "Yes", "Negative" = "No", "Both")),
             radioGroupButtons(inputId = "sel_famhist", label = "Family History", 
                               size = "sm", direction = "horizontal",
-                              choices = c("Yes", "No", "Both"), selected = "Both")
+                              choices = c("Yes", "No", "Both"), selected = "Both"), 
+            layout_column_wrap(
+              width = 1/2, 
+              actionButton(inputId = "screenshot", label = NULL, 
+                           icon = icon("camera"), width = "70px"),
+              downloadButton(outputId = "downloadTbl", label = NULL, icon = icon("download")))    
           )
         ),
         card(highchartOutput("densPlot")),
@@ -141,7 +146,17 @@ server <- function(input, output) {
       paste("Number of people in the selected group:", group_n)
     }
   })
-
+  
+  observeEvent(input$screenshot, {
+    screenshot(filename = "homepage", download = TRUE)
+  })
+  
+  output$downloadTbl <- downloadHandler(
+    filename = "filtered_base_table.csv", 
+    content = function(con) {write.csv(filtered_base_data(), con)}
+  )
+  
+  
   filtered_base_data <- reactive({
     filtered <- base_dt
 
