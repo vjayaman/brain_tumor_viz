@@ -16,3 +16,5 @@ col_list <- list(
 
 cnames <- c(setNames(col_list$seq, paste(col_list$seq, "(Seq)")), 
             setNames(col_list$qual, paste(col_list$qual, "(Qual)")))
+
+col_encoding <- colnames(base_dt)[-ncol(base_dt)][-1] %>% setNames(., nm = gsub("_", " ", .))

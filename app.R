@@ -64,10 +64,10 @@ ui <- page_fillable(
           card(
             card_header("Use saved runs"),
             selectInput(inputId = "dr_columns", width = "400px", 
-                        choices = setNames(dr_col_choices, nm = dr_full_names), 
+                        choices = setNames(dr_col_choices, nm = gsub("_", " ", dr_full_names)), 
                         label = "Columns selected for input into dimensionality reduction methods"),
             selectInput(inputId = "color_dr", label = "Color encoding for plot",
-                        choices = colnames(select(base_dt, -Patient_ID)), selected = "Tumor_Size"),
+                        choices = col_encoding, selected = "Tumor_Size"),
             selectInput(inputId = "color_palette", label = "Color palette", choices = cnames, selected = "YlGnBu"),
             uiOutput("DRSelected")
           )
@@ -566,39 +566,7 @@ server <- function(input, output) {
   })
   
   # Tab 2: Dimensionality Reduction and Clustering ------------------------------------------------
-  # output$dimredPlot <- bindEvent(renderPlotly({
-  #   req(identical(input$main_nav, "dimred"), cancelOutput = TRUE)
-  # 
-  #   # ref 3
-  #   colors <- c("#E6194B", "#3CB44B", "#FFE119", "#4363D8", "#F58231", 
-  #               "#911EB4", "#46F0F0", "#F032E6", "#BCF60C", "#FABEBE")
-  # 
-  #   run_x <- as.character(input$tsne_columns)
-  # 
-  #   cache_key <- paste(run_x, formatC(as.numeric(input$perp), flag = "0", width = 3), sep = "_")
-  #   cached_tsne <- tsne_cache()
-  # 
-  #   if (is.null(cached_tsne[[cache_key]])) {
-  #     cached_tsne[[cache_key]] <- load_tsne_embedding(run_x, input$perp)
-  #     tsne_cache(cached_tsne)
-  #   }
-  # 
-  #   filtered_tsne_data <- filteredData() %>%
-  #     select(.row_id, ColorBy = all_of(input$color_dr))
-  # 
-  #   br_dat <- cached_tsne[[cache_key]] %>%
-  #     inner_join(filtered_tsne_data, by = ".row_id")
-  # 
-  #   validate(
-  #     need(nrow(br_dat) > 0, "No t-SNE points are available for the current filters.")
-  #   )
-  # 
-  #   plot_ly(br_dat, x = ~Dim1, y = ~Dim2, z = ~Dim3,type = "scatter3d", mode = "markers", 
-  #           colors = colors, marker = list(size = 6), color = ~ColorBy)
-  # }), input$main_nav, input$tsne_columns, input$perp, input$color_dr, filteredData(),
-  # ignoreInit = TRUE)
-  
-  
+  # -----------------------------------------------------------------------------------------------
   output$DRExplanation <- renderText({
     if (input$dr_type == "t-SNE") {
       paste0(
@@ -743,7 +711,8 @@ server <- function(input, output) {
     cols <- colorRampPalette(col_palette)(length(unique(br_color)))
     
     plot_ly(dr_res, x = ~Dim1, y = ~Dim2, z = ~Dim3, type = "scatter3d", mode = "markers", 
-            colors = cols, marker = list(size = 6), color = ~ColorBy)
+            colors = cols, marker = list(size = 6), color = ~ColorBy) %>% 
+      layout(legend=list(title=list(text=input$color_dr)))
     
   }), input$dr_type, input$dr_columns, input$perp, input$color_dr, 
   input$color_palette, ignoreInit = TRUE)
