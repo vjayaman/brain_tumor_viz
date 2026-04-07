@@ -3,9 +3,9 @@
 ### Interactive visualization tool for final project in Comp 7920
 
  - to run the app: 
-        1. Clone the repository, install the R packages required at the top of *app.R*, then click "Run App"
-
-        2. Alternatively, contact us to have the app run at https://project-p.shinyapps.io/brain_tumor_viz/ (due to a limited number of available hours, it is not left running permanently)
+        
+    1. Clone the repository, install the R packages required at the top of *app.R*, then click "Run App"
+    2. Alternatively, contact us to have the app run at https://project-p.shinyapps.io/brain_tumor_viz/ (due to a limited number of available hours, it is not left running permanently)
 
  - *app.R* contains the UI and server logic, reads *brain_tumor_dataset.csv*, *functions.R*, and *global_variables.R*
 
