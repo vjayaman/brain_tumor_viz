@@ -1,4 +1,13 @@
 
+
+# ref 1: https://stackoverflow.com/questions/48887731/highcharter-click-event-to-filter-data-from-graph/48890125#48890125
+# ref 2: https://www.datanovia.com/en/lessons/highchart-interactive-density-and-histogram-plots-in-r/
+# ref 3: https://www.geeksforgeeks.org/r-language/t-distributed-stochastic-neighbor-embedding-t-sne-using-r/
+# ref 4: https://stackoverflow.com/questions/67625405/is-there-a-way-to-put-labels-next-to-an-input-box-in-shiny
+
+
+# FUNCTIONS --------------------------------------------------------------------
+
 # UI functions -----------------------------------------------------------------
 chkBoxGroupBin <- function(id, lbl) {
   checkboxGroupInput(inputId = id, label = lbl, inline = TRUE, 
@@ -23,7 +32,7 @@ load_tsne_embedding <- function(run_x, perp) {
   # pval <- formatC(as.numeric(perp), flag = "0", width = 3)
   tsne_file <- file.path("dr/tsne", paste0(run_x, "_i3000_d3_p", pval, ".Rds"))
   br_res <- readRDS(tsne_file)$res$Y
-
+  
   tibble(
     .row_id = seq_len(nrow(br_res)),
     Dim1 = br_res[, 1],
@@ -120,9 +129,9 @@ build_density_data <- function(age_values, gender_label, base_data) {
 
 
 
-dens_chart <- highchart() %>%
-  hc_chart(events = list(
-    load = JS("function() {
+dens_chart <- highcharter::highchart() |>
+  highcharter::hc_chart(events = list(
+    load = highcharter::JS("function() {
         this.legend.allItems.forEach(function(item) {
           var symbol = item.legendSymbol || (item.legendItem && item.legendItem.symbol);
           if (symbol) {
@@ -133,7 +142,7 @@ dens_chart <- highchart() %>%
           }
         });
       }"),
-    render = JS("function() {
+    render = highcharter::JS("function() {
         this.legend.allItems.forEach(function(item) {
           var symbol = item.legendSymbol || (item.legendItem && item.legendItem.symbol);
           if (symbol) {
@@ -144,11 +153,11 @@ dens_chart <- highchart() %>%
           }
         });
       }")
-  )) %>%
-  hc_title(text = "Population density by age, grouped by gender") %>%
-  hc_xAxis(title = list(text = "Age")) %>%
-  hc_yAxis(title = list(text = "Population Density")) %>%
-  hc_tooltip(
+  )) |>
+  highcharter::hc_title(text = "Population density by age, grouped by gender") |>
+  highcharter::hc_xAxis(title = list(text = "Age")) |>
+  highcharter::hc_yAxis(title = list(text = "Population Density")) |>
+  highcharter::hc_tooltip(
     useHTML = TRUE,
     headerFormat = "",
     pointFormat = paste0(
@@ -158,10 +167,10 @@ dens_chart <- highchart() %>%
       "Number of people: {point.count}<br>",
       "Density: {point.y:.4f}"
     )
-  ) %>%
-  hc_plotOptions(series = list(
+  ) |>
+  highcharter::hc_plotOptions(series = list(
     events = list(
-      legendItemClick = JS("function(event) {
+      legendItemClick = highcharter::JS("function(event) {
           Shiny.onInputChange('legendClick', this.name);
           return false; // Prevent default toggle behavior
         }")
